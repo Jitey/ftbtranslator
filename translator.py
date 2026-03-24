@@ -2,9 +2,10 @@ from deep_translator import GoogleTranslator
 import json
 from pathlib import Path
 from tqdm import tqdm
+from tqdm.contrib.concurrent import thread_map
 
 from icecream import ic
-from utility import timing_performance, time
+
 
 
 class Translator(GoogleTranslator):
@@ -29,8 +30,11 @@ class Translator(GoogleTranslator):
             json.dump(content, f, indent=4)
 
 
-    def process_file(self, file: Path, base_path: Path, target_lang: str) -> Path:
-        translation = self.batch_translate_module(file)
+    def process_file(self, file: Path, base_path: Path, target_lang: str, chunk_size: int | None = None) -> Path:
+        if chunk_size is None:
+            translation = self.translate_module(file)
+        else:
+            translation = self.batch_translate_module(file, chunk_size)
 
         relative = file.relative_to(base_path / "old")
         target = relative.with_name(f"{target_lang}.json")
@@ -42,64 +46,30 @@ class Translator(GoogleTranslator):
     
     def translate_module(self, file_path: Path) -> dict[str, str]:
         content: dict[str, str] = self.open_json(file_path)
-
         translated_content = {}
-
-        # print(f"Starting {self.target} translation of {file_path.parent.parent.name}...")
-        a = time.time()
-        # for key, value in tqdm(content.items()):
-        for key, value in content.items():
-
+        
+        for key, value in tqdm(content.items(), desc=file_path.parent.parent.name):
             translated_value = self.translate(value)
             translated_content[key] = translated_value
 
-        print(f"{file_path.parent.parent.name} translated in {time.time() - a:.1f}s")
         return translated_content
     
-    def batch_translate_module(self, file_path: Path, chunk_size: int | None = None) -> dict[str, str]:
+    def batch_translate_module(self, file_path: Path, chunk_size: int) -> dict[str, str]:
         content: dict[str, str] = self.open_json(file_path)
         values = list(content.values())
         translations = []
 
-        if chunk_size is None:
-            chunk_size = len(values)
-
-        # print(f"Starting {self.target} translation of {file_path.parent.parent.name}...")
-        a = time.time()
-        # for i in tqdm(range(0, len(values), chunk_size)):
-        for i in range(0, len(values), chunk_size):
+        for i in tqdm(range(0, len(values), chunk_size), desc=file_path.parent.parent.name):
             chunk = values[i:i+chunk_size]
             translations.extend(self.translate_batch(chunk))
 
-        print(f"{file_path.parent.parent.name} translated in {time.time() - a:.1f}s")
-        b = time.time()
         translated_content = dict(zip(content.keys(), translations))
-        print(f"Reconstruction du json en {time.time() - b:.1f}s")
-        print(f"Total {time.time() - a:.1f}s")
         
         return translated_content
 
 
-@timing_performance
-def main(root: Path, target_lang: str, source_lang: str= 'en_us') -> None:
-    from concurrent.futures import ThreadPoolExecutor
-    
-    BASE_PATH = root / "translations"
-    MODULES_PATH = BASE_PATH / "old" / "kubejs" / "assets"
-    slg, _ = source_lang.split('_')
-    tlg, _ = target_lang.split('_')
-    
-    # translator = Translator(source=slg, target=tlg)
-
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        executor.map(
-            lambda f: Translator(source=slg, target=tlg).process_file(f, BASE_PATH, target_lang),
-            MODULES_PATH.glob(f"*/lang/{source_lang}.json")
-        )
                        
                        
 
 if __name__ == '__main__':
     ROOT = Path(__file__).resolve().parent
-    
-    main(ROOT, 'fr_fr', 'en_us')
