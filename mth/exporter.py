@@ -20,7 +20,7 @@ class WorkspaceExporter:
     @staticmethod
     def write_json(content: dict, path: str | Path) -> None:
         with open(path, "w") as f:
-            json.dump(content, f, indent=4)
+            json.dump(content, f, ensure_ascii=False, indent=4)
             
     
     def open_workspace(self, file_name: str) -> dict:

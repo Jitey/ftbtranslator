@@ -18,7 +18,7 @@ class WorkspaceImporter:
     @staticmethod
     def write_json(content: dict, path: str | Path) -> None:
         with open(path, "w") as f:
-            json.dump(content, f, indent=4)
+            json.dump(content, f, ensure_ascii=False, indent=4)
 
 
     def create_directory(self, path: Path, dir_name: str="") -> Path:
