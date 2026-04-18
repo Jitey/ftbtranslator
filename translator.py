@@ -47,23 +47,53 @@ class Translator(GoogleTranslator):
     def translate_module(self, file_path: Path) -> dict[str, str]:
         content: dict[str, str] = self.open_json(file_path)
         translated_content = {}
+
+        already_file = file_path.parent / f"{self.target_name}.json"
+        already_translated: dict[str, str] = {}
+        if already_file.exists():
+            already_translated = self.open_json(already_file)
         
         for key, value in tqdm(content.items(), desc=file_path.parent.parent.name):
-            translated_value = self.translate(value)
-            translated_content[key] = translated_value
+            if key in already_translated and already_translated[key]:
+                translated_content[key] = already_translated[key]
+            else:
+                translated_content[key] = self.translate(value)
 
         return translated_content
     
     def batch_translate_module(self, file_path: Path, chunk_size: int) -> dict[str, str]:
         content: dict[str, str] = self.open_json(file_path)
+
+        already_file = file_path.parent / f"{self.target_name}.json"
+        already_translated: dict[str, str] = {}
+        if already_file.exists():
+            already_translated = self.open_json(already_file)
+
+        keys = list(content.keys())
         values = list(content.values())
-        translations = []
 
-        for i in tqdm(range(0, len(values), chunk_size), desc=file_path.parent.parent.name):
-            chunk = values[i:i+chunk_size]
-            translations.extend(self.translate_batch(chunk))
+        translations = [None] * len(values)
+        to_translate_indices = [
+            i for i, k in enumerate(keys)
+            if not (k in already_translated and already_translated[k])
+        ]
 
-        translated_content = dict(zip(content.keys(), translations))
+        pending_values = [values[i] for i in to_translate_indices]
+
+        translated_pending = []
+        for i in tqdm(range(0, len(pending_values), chunk_size), desc=file_path.parent.parent.name):
+            chunk = pending_values[i:i+chunk_size]
+            translated_pending.extend(self.translate_batch(chunk))
+
+        pending_iter = iter(translated_pending)
+
+        for idx, key in enumerate(keys):
+            if key in already_translated and already_translated[key]:
+                translations[idx] = already_translated[key]
+            else:
+                translations[idx] = next(pending_iter)
+
+        translated_content = dict(zip(keys, translations))
         
         return translated_content
 

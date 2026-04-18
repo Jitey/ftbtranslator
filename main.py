@@ -17,12 +17,11 @@ def import_workspace(root: Path) -> None:
     
     WorkspaceImporter(SOURCE_PATH, TARGET_PATH).import_from_workspace(FILE_NAME)
 
-def export_worksapce(root: Path) -> None:
+def export_workspace(root: Path) -> None:
     FILE_NAME = "StarT-Dev-Team_Star-Technology-workspace"
-    SOURCE_PATH = root / "translations" / "old"
+    SOURCE_PATH = root / "workspaces" / "imported"
     TARGET_PATH = root / "workspaces" / "exported"
-    BASE_PATH = root / "translations"
-    MODULES_PATH = BASE_PATH / "new" / "kubejs" / "assets"
+    MODULES_PATH = root / "translations" / "new" / "kubejs" / "assets"
     
     WorkspaceExporter(SOURCE_PATH, TARGET_PATH).export_to_workspace(MODULES_PATH, FILE_NAME)
     
@@ -49,11 +48,11 @@ def thread_translate_all(root: Path, target_lang: str, source_lang: str= 'en_us'
 def main():
     ROOT = Path(__file__).resolve().parent
 
-    # import_workspace(ROOT)
-
-    # export_workspace()
+    import_workspace(ROOT)
     
     thread_translate_all(ROOT, 'fr_fr')
+
+    export_workspace(ROOT)
 
 
 
